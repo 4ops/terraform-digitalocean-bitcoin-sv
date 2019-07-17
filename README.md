@@ -1,4 +1,4 @@
-# Bitcoin Core
+# Bitcoin SV
 
 * Creates virtual server(s) with docker
 * Creates cloud volume(s) and mount to /srv
