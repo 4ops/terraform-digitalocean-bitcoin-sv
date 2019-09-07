@@ -135,7 +135,7 @@ variable "monitoring" {
 variable "volume_size" {
   type = number
 
-  default = 50
+  default = 100
 
   description = <<-DESCRIPTION
     Size of data volume in gigabytes.
@@ -164,19 +164,9 @@ variable "provisioner_username" {
   DESCRIPTION
 }
 
-variable "provisioner_homedir" {
-  type = string
-
-  default = "/home/provisioner"
-
-  description = <<-DESCRIPTION
-    Home directory of `provisioner_username`.
-  DESCRIPTION
-}
-
 # Service configuration
 
-variable "bitcoin_image" {
+variable "image" {
   type = string
 
   default = "4ops/bitcoin-sv:v0.2.1"
@@ -186,28 +176,27 @@ variable "bitcoin_image" {
   DESCRIPTION
 }
 
-variable "bitcoin_network" {
-  type = string
+variable "testnet" {
+  type = bool
 
-  default = "testnet"
+  default = true
 
   description = <<-DESCRIPTION
-    Bitcoin network name.
-    Only supported values: `mainnet` or `testnet`
+    Use test network or main if `false`.
   DESCRIPTION
 }
 
-variable "bitcoin_rpc_user" {
+variable "rpc_user" {
   type = string
 
-  default = "bitcoin_user"
+  default = "bitcoin-client"
 
   description = <<-DESCRIPTION
     Username for JSON-RPC connections.
   DESCRIPTION
 }
 
-variable "bitcoin_rpc_password" {
+variable "rpc_password" {
   type = string
 
   default = ""
@@ -218,29 +207,17 @@ variable "bitcoin_rpc_password" {
   DESCRIPTION
 }
 
-variable "bitcoin_testnet_extra_args" {
-  type = list
-
-  default = [
-    "-testnet",
-  ]
-
-  description = <<-DESCRIPTION
-    Bitcoin extra arguments for testnet.
-  DESCRIPTION
-}
-
-variable "bitcoin_mainnet_extra_args" {
+variable "extra_args" {
   type = list
 
   default = []
 
   description = <<-DESCRIPTION
-    Bitcoin extra arguments for mainnet.
+    Bitcoin extra arguments.
   DESCRIPTION
 }
 
-variable "bitcoin_prune" {
+variable "prune" {
   type        = number
   default     = 0
   description = <<-DESCRIPTION
@@ -256,7 +233,7 @@ variable "bitcoin_prune" {
   DESCRIPTION
 }
 
-variable "bitcoin_txindex" {
+variable "txindex" {
   type        = bool
   default     = false
   description = <<-DESCRIPTION
@@ -265,11 +242,22 @@ variable "bitcoin_txindex" {
   DESCRIPTION
 }
 
-variable "bitcoin_onlynet" {
+variable "onlynet" {
   type        = string
   default     = "ipv4"
   description = <<-DESCRIPTION
     Only connect to nodes in network <net> (ipv4, ipv6 or onion).
     Default: ipv4
+  DESCRIPTION
+}
+
+# Exporter configuration
+
+variable "bitcoin_exporter" {
+  type        = bool
+  default     = true
+  description = <<-DESCRIPTION
+    Installs bitcoin-exporter.
+    Default: true
   DESCRIPTION
 }

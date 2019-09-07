@@ -5,171 +5,49 @@ terraform {
     digitalocean = "~> 1.4"
     random       = "~> 2.1"
     template     = "~> 2.1"
-    tls          = "~> 2.0"
     null         = "~> 2.1"
   }
 }
 
-module "hostname" {
-  source    = "4ops/hostname-generator/template"
-  version   = "1.0.1"
-  prefix    = var.name
-  domain    = var.domain
-  random_id = var.random_id
-  servers   = var.servers
+module "server" {
+  source  = "4ops/docker-server/digitalocean"
+  version = "1.0.0"
+
+  name                 = var.name
+  random_id            = var.random_id
+  servers              = var.servers
+  domain               = var.domain
+  domain_ttl           = var.domain_ttl
+  region               = var.region
+  ssh_keys             = var.ssh_keys
+  tags                 = var.tags
+  size                 = var.size
+  backups              = var.backups
+  ipv6                 = var.ipv6
+  private_networking   = var.private_networking
+  monitoring           = var.monitoring
+  volume_size          = var.volume_size
+  trusted_sources      = var.trusted_sources
+  provisioner_username = var.provisioner_username
 }
 
 locals {
-  all_hosts = ["0.0.0.0/0", "::/0"]
-  all_ports = "1-65535"
-
-  bitcoin_rpc_password = var.bitcoin_rpc_password != "" ? var.bitcoin_rpc_password : join("", random_string.bitcoin_rpc_password[*].result)
-  bitcoin_extra_args   = var.bitcoin_network == "testnet" ? var.bitcoin_testnet_extra_args : var.bitcoin_mainnet_extra_args
-
-  service_dir = "/srv/${var.name}"
+  rpc_password = var.rpc_password != "" ? var.rpc_password : join("", random_string.rpc_password[*].result)
+  service_dir = "/srv/bitcoin"
 }
 
-resource "tls_private_key" "provisioner" {
-  count = var.servers
-
-  algorithm   = "ECDSA"
-  ecdsa_curve = "P521"
-}
-
-resource "random_string" "bitcoin_rpc_password" {
-  count = var.servers > 0 ? 1 : 0
+resource "random_string" "rpc_password" {
+  count = var.rpc_password != "" ? 0 : 1
 
   length  = 32
   special = false
-}
-
-resource "digitalocean_firewall" "network_policy" {
-  count = var.servers > 0 ? 1 : 0
-
-  name = "droplet-policy-${var.name}"
-
-  droplet_ids = digitalocean_droplet.server.*.id
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "22"
-    source_addresses = var.trusted_sources
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "8332"
-    source_addresses = var.trusted_sources
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "18332"
-    source_addresses = var.trusted_sources
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "8333"
-    source_addresses = local.all_hosts
-  }
-
-  inbound_rule {
-    protocol         = "tcp"
-    port_range       = "18333"
-    source_addresses = local.all_hosts
-  }
-
-  outbound_rule {
-    protocol              = "tcp"
-    port_range            = local.all_ports
-    destination_addresses = local.all_hosts
-  }
-
-  outbound_rule {
-    protocol              = "udp"
-    port_range            = local.all_ports
-    destination_addresses = local.all_hosts
-  }
-
-  outbound_rule {
-    protocol              = "icmp"
-    destination_addresses = local.all_hosts
-  }
-}
-
-resource "digitalocean_volume" "data_volume" {
-  count = var.volume_size > 0 ? var.servers : 0
-
-  name   = "${module.hostname.name[count.index]}-data"
-  region = var.region
-  size   = var.volume_size
-
-  initial_filesystem_label = "data"
-  initial_filesystem_type  = "xfs"
-}
-
-resource "digitalocean_droplet" "server" {
-  count = var.servers
-
-  name               = module.hostname.name[count.index]
-  tags               = var.tags
-  region             = var.region
-  size               = var.size
-  backups            = var.backups
-  monitoring         = var.monitoring
-  ipv6               = var.ipv6
-  ssh_keys           = var.ssh_keys
-  private_networking = var.private_networking
-  user_data          = data.template_file.cloud_config[count.index].rendered
-  volume_ids         = var.volume_size > 0 ? [digitalocean_volume.data_volume[count.index].id] : []
-
-  image       = "docker-18-04"
-  resize_disk = false
-
-  lifecycle {
-    ignore_changes = ["user_data", "image"]
-  }
-
-  connection {
-    host        = self.ipv4_address
-    user        = var.provisioner_username
-    private_key = tls_private_key.provisioner[count.index].private_key_pem
-    timeout     = "5m"
-  }
-
-  provisioner "remote-exec" {
-    inline = ["cloud-init status --wait > /dev/null"]
-  }
-}
-
-resource "digitalocean_record" "a" {
-  count = var.domain != "" ? var.servers : 0
-
-  type = "A"
-
-  domain = var.domain
-  name   = digitalocean_droplet.server[count.index].name
-  value  = digitalocean_droplet.server[count.index].ipv4_address
-  ttl    = var.domain_ttl
-}
-
-resource "digitalocean_record" "aaaa" {
-  count = var.ipv6 && var.domain != "" ? var.servers : 0
-
-  type = "AAAA"
-
-  domain = var.domain
-  name   = digitalocean_droplet.server[count.index].name
-  value  = digitalocean_droplet.server[count.index].ipv6_address
-  ttl    = var.domain_ttl
 }
 
 resource "null_resource" "update_docker_compose_config" {
   count = var.servers
 
   triggers = {
-    droplet_id_changed            = digitalocean_droplet.server[count.index].id
+    server_ip_changed             = module.server.ipv4[count.index]
     docker_compose_config_changed = sha256(data.template_file.docker_compose_config.rendered)
   }
 
@@ -177,9 +55,9 @@ resource "null_resource" "update_docker_compose_config" {
     type    = "ssh"
     timeout = "2m"
 
-    host        = digitalocean_droplet.server[count.index].ipv4_address
+    host        = module.server.ipv4[count.index]
     user        = var.provisioner_username
-    private_key = tls_private_key.provisioner[count.index].private_key_pem
+    private_key = module.server.private_key[count.index]
   }
 
   provisioner "remote-exec" {
@@ -201,32 +79,6 @@ resource "null_resource" "update_docker_compose_config" {
       "docker-compose config --quiet",
       "docker-compose pull --quiet",
       "docker-compose up --detach",
-    ]
-  }
-}
-
-resource "null_resource" "resize_data_volume" {
-  count = var.volume_size > 0 ? var.servers : 0
-
-  depends_on = [digitalocean_droplet.server, digitalocean_volume.data_volume]
-
-  triggers = {
-    volume_size_changed = var.volume_size
-  }
-
-  connection {
-    type    = "ssh"
-    timeout = "2m"
-
-    host        = digitalocean_droplet.server[count.index].ipv4_address
-    user        = var.provisioner_username
-    private_key = tls_private_key.provisioner[count.index].private_key_pem
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "sleep 30",
-      "sudo xfs_growfs /dev/disk/by-label/${digitalocean_volume.data_volume[count.index].filesystem_label}",
     ]
   }
 }

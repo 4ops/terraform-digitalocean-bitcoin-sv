@@ -18,38 +18,46 @@ terraform {
 #   token = var.do_token
 # }
 
-module "bitcoin_testnet_no_volume" {
+module "development_mempool" {
   source          = "../../terraform-digitalocean-bitcoin-sv"
-  name            = "bsv-staging"
-  region          = var.region
-  trusted_sources = var.trusted_sources
+  name            = "bsv-test-txpool"
+  region          = "ams3"
+  trusted_sources = ["0.0.0.0/0", "::/0"]
   ssh_keys        = var.ssh_keys
-  domain          = var.domain
   volume_size     = 0
+  prune           = 10000
 }
 
-module "bitcoin_mainnet_with_volume_and_txindex" {
+module "development_transactions" {
   source          = "../../terraform-digitalocean-bitcoin-sv"
-  name            = "bsv-txindex"
-  region          = var.region
-  trusted_sources = var.trusted_sources
+  name            = "bsv-test-txindex"
+  region          = "ams3"
+  trusted_sources = ["0.0.0.0/0", "::/0"]
   ssh_keys        = var.ssh_keys
-  domain          = var.domain
-  size            = "s-4vcpu-8gb"
-  volume_size     = 300
-  bitcoin_network = "mainnet"
-  bitcoin_txindex = true
+  volume_size     = 100
+  txindex         = true
 }
 
-module "bitcoin_mainnet_with_prune" {
+module "production_mempool" {
   source          = "../../terraform-digitalocean-bitcoin-sv"
-  name            = "bsv-light"
-  region          = var.region
-  trusted_sources = var.trusted_sources
+  name            = "bsv-main-txpool"
+  servers         = 2
+  region          = "ams3"
+  trusted_sources = ["0.0.0.0/0", "::/0"]
   ssh_keys        = var.ssh_keys
-  domain          = var.domain
-  size            = "s-2vcpu-4gb"
   volume_size     = 0
-  bitcoin_network = "mainnet"
-  bitcoin_prune   = 30000
+  testnet         = false
+  prune           = 10000
+}
+
+module "production_transactions" {
+  source          = "../../terraform-digitalocean-bitcoin-sv"
+  name            = "bsv-main-txindex"
+  servers         = 2
+  region          = "ams3"
+  trusted_sources = ["0.0.0.0/0", "::/0"]
+  ssh_keys        = var.ssh_keys
+  volume_size     = 200
+  testnet         = false
+  txindex         = true
 }

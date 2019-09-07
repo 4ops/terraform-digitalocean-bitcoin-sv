@@ -1,11 +1,8 @@
-output "endpoints" {
-  value = sort(concat(
-    module.bitcoin_testnet_no_volume.endpoints,
-    module.bitcoin_mainnet_with_volume_and_txindex.endpoints,
-    module.bitcoin_mainnet_with_prune.endpoints,
-  ))
-}
-
-output "ports" {
-  value = module.bitcoin_testnet_no_volume.ports
+output "name" {
+  value = concat(
+    module.development_mempool.name,
+    module.development_transactions.name,
+    module.production_mempool.name,
+    module.production_transactions.name,
+  )
 }
