@@ -29,7 +29,7 @@ data "template_file" "docker_compose_config" {
           - '-rpcpassword=${local.rpc_password}'
           - '-prune=${var.prune}'
 %{ if length(var.extra_args) > 0 ~}
-          ${indent(6, join("\n", formatlist("- '%s'", var.extra_args)))}
+          ${indent(10, join("\n", formatlist("- '%s'", var.extra_args)))}
 %{ endif ~}
 
 %{ if var.bitcoin_exporter ~}
